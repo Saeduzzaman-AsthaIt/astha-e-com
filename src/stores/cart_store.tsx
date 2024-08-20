@@ -5,7 +5,7 @@ import { createJSONStorage, persist, PersistOptions } from "zustand/middleware";
 interface CartState {
     cartItems: ItemSet[],
     addToCart: (item: ItemSet) => void,
-    removeFromCart: (id: number) => void,
+    removeFromCart: (id: string) => void,
     cartItemCount: () => void
 }
 
@@ -21,8 +21,8 @@ const useCartStore = create<CartState>(
             addToCart: (item: ItemSet) => set((state: any) => ({
                 cartItems: [...state.cartItems, item]
             })),
-            removeFromCart: (id: any) => set((state: any) => ({
-                cartItems: state.cartItems.filter((item: any) => item.id !== id)
+            removeFromCart: (id: string) => set((state: any) => ({
+                cartItems: state.cartItems.filter((item: ItemSet) => item._id !== id)
             })),
             cartItemCount: () => get().cartItems.length
         }),

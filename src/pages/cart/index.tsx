@@ -10,7 +10,7 @@ const Cart = () => {
 
             {cartItems.length === 0 ? <p>No item in Cart</p>
             :(cartItems.map((cartItem: ItemSet) => {
-                return <CartItem cartItem={cartItem} onRemove={removeFromCart} />
+                return <CartItem key={cartItem._id} cartItem={cartItem} onRemove={removeFromCart} />
             }))}
         </div>
     )

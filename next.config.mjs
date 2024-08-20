@@ -7,7 +7,8 @@ const nextConfig = {
       "img.lemde.fr",
       "occ-0-8407-2705.1.nflxso.net",
       "images.secretlab.co",
-      "via.placeholder.com"
+      "via.placeholder.com",
+      "images.pokemontcg.io"
     ],
   },
   transpilePackages: [
