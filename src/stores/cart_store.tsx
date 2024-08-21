@@ -1,10 +1,10 @@
-import create from "zustand";
-import { ItemSet } from "@/models/models";
+import { Set } from "pokemon-tcg-sdk-typescript/dist/sdk";
+import { create } from "zustand";
 import { createJSONStorage, persist, PersistOptions } from "zustand/middleware";
 
 interface CartState {
-    cartItems: ItemSet[],
-    addToCart: (item: ItemSet) => void,
+    cartItems: Set[],
+    addToCart: (item: Set) => void,
     removeFromCart: (id: string) => void,
     cartItemCount: () => void
 }
@@ -18,11 +18,11 @@ const useCartStore = create<CartState>(
     (persist as CartPersist)(
         (set, get) => ({
             cartItems: [],
-            addToCart: (item: ItemSet) => set((state: any) => ({
+            addToCart: (item: Set) => set((state: any) => ({
                 cartItems: [...state.cartItems, item]
             })),
             removeFromCart: (id: string) => set((state: any) => ({
-                cartItems: state.cartItems.filter((item: ItemSet) => item._id !== id)
+                cartItems: state.cartItems.filter((item: Set) => item.id !== id)
             })),
             cartItemCount: () => get().cartItems.length
         }),

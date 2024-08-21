@@ -1,19 +1,18 @@
 import { useItemSet } from "@/hooks/useItemSet";
-import { ItemSet } from "@/models/models";
 import useCartStore from "@/stores/cart_store";
 import { Alert, Button, Modal, Spin } from "antd";
-import { useState } from "react";
+import { Set } from "pokemon-tcg-sdk-typescript/dist/sdk";
+import { useEffect, useState } from "react";
 
-const QuickView = ({itemName} : {itemName: string}) => {
+const QuickView = ({itemName, hideQuickView, isModalVisible: isModalOpen} : {itemName: string, isModalVisible: boolean, hideQuickView: () => void}) => {
   console.log("QuickView Called");
-  const [isModalOpen, setIsModalOpen] = useState(!!itemName);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
   const { data: itemSet, error: fetchByIdError } = useItemSet(itemName);
   
   const resetModal = () => {
-    setIsModalOpen(false);
+    hideQuickView();
     setIsLoading(false);
     setError("");
   }
@@ -24,29 +23,13 @@ const QuickView = ({itemName} : {itemName: string}) => {
   
   const addToCart = useCartStore((state) => state.addToCart);
 
-  const onAddToCartClick = (e: React.MouseEvent<HTMLButtonElement>, itemSet: ItemSet | null | undefined) => {
+  const onAddToCartClick = (e: React.MouseEvent<HTMLButtonElement>, itemSet: Set | null | undefined) => {
     e.preventDefault();
     resetModal();
     if(itemSet) {
         addToCart(itemSet);
     }
   }
-
-  // useEffect(() => {
-  //   if(fetchByIdError) {
-  //     setIsLoading(false);
-  //     setError("Failed to fetch data");
-  //     console.log("Failed to fetch data by id");
-  //   }
-  // }, [fetchByIdError]);
-
-  // useEffect(() => {
-  //   if(itemSet) {
-  //     setIsLoading(false);
-  //     setItem(itemSet);
-  //     console.log("Fetch data by id Success");
-  //   }
-  // }, [itemSet]);
   
   return (
       <>
@@ -66,7 +49,7 @@ const QuickView = ({itemName} : {itemName: string}) => {
             <Alert message={error} type="error" />
           ) : itemSet ? (
             <div>
-              <h3>{itemSet?._id}</h3>
+              <h3>{itemSet?.id}</h3>
               <p>{itemSet?.name}</p>
               <p>Price: ${itemSet?.series}</p>
               {/* Include more details as needed */}

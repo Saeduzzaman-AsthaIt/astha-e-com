@@ -1,11 +1,12 @@
-import fetchSetByName, { updateSetItem } from "@/api/item-set-api";
+import fetchSetByName, { updateSetItem, fetchUpdatedSetByName } from "@/api/item-set-api";
 import { useItemSet } from "@/hooks/useItemSet";
-import { dehydrate, QueryClient } from "@tanstack/react-query";
+import { dehydrate, QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, Modal } from "antd";
 import { GetStaticPaths, GetStaticProps } from "next";
 import { PokemonTCG } from "pokemon-tcg-sdk-typescript";
 import { ParsedUrlQuery } from "querystring";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Custom404 from "../404";
 
 // {
 //     queryKey: ["item", itemId],
@@ -15,19 +16,48 @@ import { useState } from "react";
 // }
 
 const ItemInSet = ({ itemId: itemName, dehydratedState }: { itemId: string, dehydratedState: any}) => {
-    const queryClient = new QueryClient();
+    const queryClient = useQueryClient();
     console.log("Inside ItemInSet --- ");
     console.log(itemName ? itemName : "undefined item id");
     const initialData = dehydratedState?.queries.find((query: any) => query.queryKey[1] === itemName)?.state.data;
+    
+    // Fetch from PokemonTCG
     const {data: itemSet, error, isLoading} = useItemSet(itemName, initialData);
 
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [existingName, setExistingName] = useState(itemSet?.name);
-    const [editedName, setEditedName] = useState(itemSet?.name);
+
+    // Fetch updated item
+    const {data: updatedItemSet, error: errorOnUpdatedItem, isLoading: isLoadingOnUpdatedItem} = useQuery({
+        queryKey: ["updatedItem", itemSet?.id],
+        queryFn: () => fetchUpdatedSetByName(itemSet?.id || ""),
+        enabled: !!existingName,
+        staleTime: 0
+    });
+    
+    const [editedName, setEditedName] = useState(updatedItemSet?.updatedName || itemSet?.name);
+    // const [updatedName, setUpdatedName] = useState(editedName);
+    const [inputError, setInputError] = useState("");
+
+    useEffect(() => {
+        if(updatedItemSet?.updatedName) {
+            setEditedName(updatedItemSet?.updatedName);
+        }
+    }, [itemSet, updatedItemSet]);
+
+    const mutation = useMutation({
+        mutationFn: ({itemName, itemSetToBeUpdated}: {itemName: string, itemSetToBeUpdated: any}) => updateSetItem(itemName, itemSetToBeUpdated),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({
+                queryKey: ["updatedItem", itemSet?.id]
+            });
+            setIsModalVisible(false);
+        }
+    });
 
     if(!itemSet) {
         console.log("Inside ItemInSet --- no itemset");
-        return <p></p>
+        return <Custom404 />; // Show 404 page when itemSet is not found
     }
 
     // The followings are not necessary
@@ -39,55 +69,67 @@ const ItemInSet = ({ itemId: itemName, dehydratedState }: { itemId: string, dehy
     }
     const onModalCancel = () => {
         setIsModalVisible(false);
-        setEditedName(existingName);
+        setEditedName(itemSet?.name);
+        setInputError("");
     }
-    const updateName = async () => {
-        setIsModalVisible(false);
-        // setExistingName(editedName);
-        // TODO: update database too
 
-        try {
-            itemSet.name = editedName || "";
-            updateSetItem(existingName || "", itemSet);
-            await queryClient.invalidateQueries({
-                queryKey: ["item", itemName]
-            })
-        } catch(e) {
-            console.error("Failed to update item name!", e);
+    const validateInput = () => {
+        let errorMessage = "";
+        if(!editedName) {
+            errorMessage = "Rquired";
         }
+        if(existingName === editedName) {
+            errorMessage = "Unchanged";
+        }
+        
+        if(errorMessage) {
+            setInputError(errorMessage);
+            return false;
+        }
+
+        return true;
     }
+
+    const onUpdateButtonClick = (e: React.MouseEvent) => {
+        e.preventDefault();
+        if(!validateInput()) { return; }
+        setInputError("");
+        // mutation.mutate({itemName: "Legendary Collection", itemSetToBeUpdated: {name: editedName}});
+        // mutation.mutate({itemName: editedName || "", itemSetToBeUpdated: {name: editedName}});
+        // mutation.mutate({itemName: existingName || "", itemSetToBeUpdated: {name: editedName}});
+        mutation.mutate({itemName: itemSet.id, itemSetToBeUpdated: {updatedName: editedName}});
+    }
+
+    let newName = updatedItemSet?.updatedName || itemSet?.name;
 
     const {
-        // id,
-        // images,
-        // images,
-        // legalities,
-        // legalities,
+        id,
+        images,
+        legalities,
         name,
-        // printedTotal,
-        // ptcgoCode,
-        // releaseDate,
-        // series,
-        // total,
-        // updatedAt,
-        age,
-        _id
-    } = itemSet
+        printedTotal,
+        ptcgoCode,
+        releaseDate,
+        series,
+        total,
+        updatedAt,
+    } = itemSet;
 
     return (
         <>
             <div className="max-w-4xl mx-auto p-6 bg-white shadow-lg rounded-lg">
             <div className="flex flex-col md:flex-row">
                 <div className="w-full md:w-1/3">
-                {/* <img
+                <img
                     src={images?.logo}
                     alt={name}
                     className="rounded-lg w-full h-auto object-cover"
-                /> */}
+                />
                 </div>
                 <div className="w-full md:w-2/3 md:ml-6 mt-6 md:mt-0">
                     <div className="flex items-center justify-between">
-                        <h1 className="text-2xl font-bold text-gray-800">Name: {name}</h1>
+                        {/* <h1 className="text-2xl font-bold text-gray-800">Name: {updatedName}</h1> */}
+                        <h1 className="text-2xl font-bold text-gray-800">Name: {newName}</h1>
                         <button
                         onClick={onEditButtonClick}
                         className="ml-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
@@ -95,20 +137,20 @@ const ItemInSet = ({ itemId: itemName, dehydratedState }: { itemId: string, dehy
                         Edit
                         </button>
                     </div>
-                <p className="text-gray-600 mt-2">ID: {_id}</p>
+                <p className="text-gray-600 mt-2">ID: {id}</p>
                 <p className="text-gray-600 mt-2">Name: {name}</p>
-                <p className="text-gray-600 mt-2">Age: {age}</p>
-                {/* <p className="text-gray-600 mt-2">Series: {series}</p>
+                {/* <p className="text-gray-600 mt-2">Age: {age}</p> */}
+                <p className="text-gray-600 mt-2">Series: {series}</p>
                 <p className="text-gray-600 mt-2">Release Date: {releaseDate}</p>
                 <p className="text-gray-600 mt-2">Total Printed: {printedTotal}</p>
                 <p className="text-gray-600 mt-2">PTCGO Code: {ptcgoCode}</p>
                 <p className="text-gray-600 mt-2">Total: {total}</p>
-                <p className="text-gray-600 mt-2">Updated At: {updatedAt}</p> */}
+                <p className="text-gray-600 mt-2">Updated At: {updatedAt}</p>
         
                 {/* <div className="mt-6">
                     <h2 className="text-lg font-semibold text-gray-800">Legalities</h2>
                     <ul className="list-disc list-inside mt-2 text-gray-600">
-                    {Object.keys(legalities).map((key) => (
+                    {legalities && Object.keys((legalities: Legalities)).map((key) => (
                         <li key={key}>
                         {key}: {legalities[key]}
                         </li>
@@ -124,16 +166,18 @@ const ItemInSet = ({ itemId: itemName, dehydratedState }: { itemId: string, dehy
                 title="Item Quick View"
                 open={isModalVisible}
                 onCancel={onModalCancel}
+                // onOk={onUpdateButtonClick}
                 footer={[
-                    <Button type="primary" key="" onClick={(e: React.MouseEvent<HTMLButtonElement>) => {updateName()}}>
+                    <Button type="primary" key="update" onClick={(e: React.MouseEvent<HTMLButtonElement>) => {onUpdateButtonClick(e)}}>
                         Update
                     </Button>,
-                    <Button type="primary" key="" onClick={onModalCancel}>
+                    <Button type="primary" key="cancel" onClick={onModalCancel}>
                         Cancel
                     </Button>                    
                 ]}
             >
                 <input className="border" type="text" value={editedName} onChange={(e) => setEditedName(e.target.value)} />
+                {inputError && <p className="text-red-500">{inputError}</p>}
             </Modal>
         </>
     );
@@ -154,6 +198,12 @@ export const getStaticProps = async ({params}: { params: ParsedUrlQuery }) => {
           queryKey: ["item", params.itemId],
           queryFn: () => fetchSetByName(itemName)
         });
+
+        const itemSet = queryClient.getQueryData(["item", itemName]);
+        
+        if (!itemSet) {
+            return { notFound: true }; // Trigger 404 page if no data
+        }
       
         return {
           props: {
